@@ -1,0 +1,51 @@
+package customwebsocket
+
+import "fmt"
+
+type Pool struct {
+	Register   chan *Client
+	UnRegister chan *Client
+	Clients    map[*Client]bool
+	Broadcast  chan Message
+}
+
+func NewPool() *Pool {
+	return &Pool{
+		Register:   make(chan *Client),
+		UnRegister: make(chan *Client),
+		Clients:    make(map[*Client]bool),
+		Broadcast:  make(chan Message)}
+}
+
+func (pool *Pool) Start() {
+	for {
+		select {
+		case client := <-pool.Register:
+			pool.Clients[client] = true
+			fmt.Println("total connection pool:- ", len(pool.Clients))
+			for k, _ := range pool.Clients {
+				fmt.Println(k)
+				k.Conn.WriteJSON(Message{Type:1,Body:"New User Joined"})
+			}
+		
+
+		case client := <-pool.UnRegister:
+			delete(pool.Clients, client)
+			fmt.Println("total connection pool:- ",len(pool.Clients))
+			for k , _ := range pool.Clients{
+				fmt.Println(k)
+				k.Conn.WriteJSON(Message{Type:1,Body:"User Deleted"})
+			}
+			
+
+		case msg := <-pool.Broadcast:
+			fmt.Println("BroadCasting a message")
+			for k,_:=range pool.Clients{
+				if err:=k.Conn.WriteJSON(msg);err!=nil{
+						fmt.Println(err)
+						return
+				}
+			}
+		}
+	}
+}
